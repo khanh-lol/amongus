@@ -1,30 +1,9 @@
-local HttpService = game:GetService("HttpService")
-
--- Thay thế bằng URL webhook của bạn
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
-
--- Dữ liệu gửi đến Discord
-local payload = {
-    content = "hello"
-}
-
--- Cấu hình yêu cầu HTTP
-local requestData = {
-    Url = WEBHOOK_URL,
-    Method = "POST",
-    Headers = {
-        ["Content-Type"] = "application/json"
-    },
-    Body = HttpService:JSONEncode(payload)
-}
-
--- Gửi yêu cầu HTTP
-local success, response = pcall(function()
-    return HttpService:RequestAsync(requestData)
+local success, err = pcall(function()
+    HttpService:PostAsync(WEBHOOK_URL, payloadJson, Enum.HttpContentType.ApplicationJson)
 end)
 
-if success and response.Success then
-    print("Đã gửi 'hello' đến webhook thành công!")
+if success then
+    print("Đã gửi 'hello' tới webhook thành công!")
 else
-    warn("Gửi webhook thất bại:", response and response.StatusCode, response and response.StatusMessage)
+    warn("Gửi webhook thất bại:", err)
 end
