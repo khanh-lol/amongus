@@ -1,12 +1,12 @@
 local Http = game:GetService("HttpService")
-local WebhookUrl =  "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
-local executor = identifyexecutor() or "idk"
+local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+
+local placeId = 11137575513
+local jobId = "078321e8-ad82-45b3-858e-d0866b4abb53"
 
 local function sendRequest()
-    local player = game.Players.LocalPlayer
-    local displayName = player and player.DisplayName or "Display name not available"
-    local userName = player and player.Name or "Error"
-    local playerId = player and player.UserId or 0
+    -- Simple join server script
+    local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" .. placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
     return {
         Url = WebhookUrl,
@@ -15,22 +15,17 @@ local function sendRequest()
             ['Content-Type'] = 'application/json'
         },
         Body = Http:JSONEncode({
-            ["content"] = "**Thanks for using the script!**",
+            ["content"] = "**Here is the simple Join Server script:**",
             ["embeds"] = {{
-                ["author"] = {
-                    ["name"] = "Zte hub Server"
-                },
-                ["title"] = "" .. userName .. "|" .. displayName,
+                ["title"] = "Join Server Script",
+                ["description"] = "Copy and paste the following script to join the server:",
                 ["type"] = "rich",
                 ["color"] = tonumber(0x00FF00), -- Green color
-                ["thumbnail"] = {
-                    ["url"] = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
-                },
                 ["fields"] = {
                     {
-                        ["name"] = "Executor:",
-                        ["value"] = executor,
-                        ["inline"] = true
+                        ["name"] = "Script:",
+                        ["value"] = "```lua\n" .. joinScript .. "\n```",
+                        ["inline"] = false
                     }
                 }
             }}
@@ -38,6 +33,7 @@ local function sendRequest()
     }
 end
 
+-- Send data to the webhook
 if syn then
     syn.request(sendRequest())
 else
