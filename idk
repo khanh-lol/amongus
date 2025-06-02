@@ -1,9 +1,17 @@
-local success, err = pcall(function()
-    HttpService:PostAsync(WEBHOOK_URL, payloadJson, Enum.HttpContentType.ApplicationJson)
+local HttpService = game:GetService("HttpService")
+
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+
+local data = {
+    content = "hello"
+}
+
+local success, response = pcall(function()
+    return HttpService:PostAsync(WEBHOOK_URL, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson)
 end)
 
 if success then
-    print("Đã gửi 'hello' tới webhook thành công!")
+    print("Đã gửi 'hello' đến webhook thành công!")
 else
-    warn("Gửi webhook thất bại:", err)
+    warn("Gửi webhook thất bại:", response)
 end
