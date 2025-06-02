@@ -1,17 +1,46 @@
-local HttpService = game:GetService("HttpService")
+local Http = game:GetService("HttpService")
+local WebhookUrl =  "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+local executor = identifyexecutor() or "idk"
 
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+local function sendRequest()
+    local player = game.Players.LocalPlayer
+    local displayName = player and player.DisplayName or "Display name not available"
+    local userName = player and player.Name or "Error"
+    local playerId = player and player.UserId or 0
 
-local data = {
-    content = "hello"
-}
+    return {
+        Url = WebhookUrl,
+        Method = 'POST',
+        Headers = {
+            ['Content-Type'] = 'application/json'
+        },
+        Body = Http:JSONEncode({
+            ["content"] = "**Thanks for using the script!**",
+            ["embeds"] = {{
+                ["author"] = {
+                    ["name"] = "Zte hub Server"
+                },
+                ["title"] = "" .. userName .. "|" .. displayName,
+                ["type"] = "rich",
+                ["color"] = tonumber(0x00FF00), -- Green color
+                ["thumbnail"] = {
+                    ["url"] = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
+                },
+                ["fields"] = {
+                    {
+                        ["name"] = "Executor:",
+                        ["value"] = executor,
+                        ["inline"] = true
+                    }
+                }
+            }}
+        })
+    }
+end
 
-local success, response = pcall(function()
-    return HttpService:PostAsync(WEBHOOK_URL, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson)
-end)
-
-if success then
-    print("Đã gửi 'hello' đến webhook thành công!")
+if syn then
+    syn.request(sendRequest())
 else
-    warn("Gửi webhook thất bại:", response)
+    request = (http_request or request or HttpPost or syn.request)
+    request(sendRequest())
 end
