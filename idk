@@ -1,1 +1,45 @@
+-- LocalScript: test_game_name.lua
+
+local Http       = game:GetService("HttpService")
+local WebhookUrl = "https://discord.com/api/webhooks/…/YourWebhookToken"  -- Thay bằng webhook của bạn
+
+-- Lấy “Game Name” đơn giản
+local gameName = tostring(game.Name or "Unknown Game")
+print("DEBUG | Game Name đang lấy: " .. gameName)
+
+-- Build payload chỉ chứa Game Name
+local payload = {
+    content = "**Test Game Name**",
+    embeds  = {
+        {
+            title = "Game Name Check",
+            fields = {
+                {
+                    name  = "Game Name:",
+                    value = gameName,
+                    inline = false
+                }
+            }
+        }
+    }
+}
+
+-- Gửi request lên Discord
+local requestFunc
+if syn and syn.request then
+    requestFunc = syn.request
+else
+    requestFunc = http_request or request or HttpPost or (syn and syn.request)
+end
+
+if requestFunc then
+    requestFunc({
+        Url     = WebhookUrl,
+        Method  = "POST",
+        Headers = { ["Content-Type"] = "application/json" },
+        Body    = Http:JSONEncode(payload)
+    })
+else
+    warn("Không tìm thấy hàm request để gửi payload")
+end
 
