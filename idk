@@ -1,7 +1,7 @@
 -- LocalScript: test_game_name.lua
 
 local Http       = game:GetService("HttpService")
-local WebhookUrl = "https://discord.com/api/webhooks/…/YourWebhookToken"  -- Thay bằng webhook của bạn
+local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"  -- Thay bằng webhook của bạn
 
 -- Lấy “Game Name” đơn giản
 local gameName = tostring(game.Name or "Unknown Game")
