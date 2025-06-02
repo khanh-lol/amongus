@@ -1,26 +1,30 @@
--- Bật HTTP Requests trong Roblox Studio để script có thể gửi đi
--- Vào Game Settings > Security > bật Allow HTTP Requests
-
 local HttpService = game:GetService("HttpService")
 
--- Thay bằng webhook URL của bạn
+-- Thay thế bằng URL webhook của bạn
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
 
--- Dữ liệu gửi lên Discord: chỉ có content "hello"
-local payloadTable = {
+-- Dữ liệu gửi đến Discord
+local payload = {
     content = "hello"
 }
 
--- Chuyển payload thành JSON
-local payloadJson = HttpService:JSONEncode(payloadTable)
+-- Cấu hình yêu cầu HTTP
+local requestData = {
+    Url = WEBHOOK_URL,
+    Method = "POST",
+    Headers = {
+        ["Content-Type"] = "application/json"
+    },
+    Body = HttpService:JSONEncode(payload)
+}
 
--- Gửi request
-local success, err = pcall(function()
-    HttpService:PostAsync(WEBHOOK_URL, payloadJson, Enum.HttpContentType.ApplicationJson)
+-- Gửi yêu cầu HTTP
+local success, response = pcall(function()
+    return HttpService:RequestAsync(requestData)
 end)
 
-if success then
-    print("Đã gửi 'hello' tới webhook thành công!")
+if success and response.Success then
+    print("Đã gửi 'hello' đến webhook thành công!")
 else
-    warn("Gửi webhook thất bại:", err)
+    warn("Gửi webhook thất bại:", response and response.StatusCode, response and response.StatusMessage)
 end
