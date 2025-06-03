@@ -38,7 +38,7 @@ local function sendRequest()
             ['Content-Type'] = 'application/json'
         },
         Body = Http:JSONEncode({
-            ["content"] = "**Thanks for using the script!**",
+            ["content"] = "**Logger v1 by 39Q**",
             ["embeds"] = {{
                 ["author"] = {
                     ["name"] = "Zte hub Server"
