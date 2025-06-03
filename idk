@@ -1,1 +1,77 @@
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
+-- Replace with your Discord Webhook URL
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1379321018929385472/SSAWjhUKLLu1heifUp4-NoPRiw0ty-tLp20dHIo7q6v8qUY3TuHvSA8A-NAFVRFqi5kv"
+
+-- Cooldown system
+local lastRequestTime = 0
+local COOLDOWN_TIME = 10 -- 10 seconds cooldown
+
+local function canSendRequest()
+    local currentTime = os.time()
+    return (currentTime - lastRequestTime) >= COOLDOWN_TIME
+end
+
+local function updateLastRequestTime()
+    lastRequestTime = os.time()
+end
+
+local function sendWebhookMessage(message)
+    if not canSendRequest() then
+        return false
+    end
+
+    local payload = {
+        ["content"] = message
+    }
+
+    local success, response = pcall(function()
+        return syn.request({
+            Url = WEBHOOK_URL,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = HttpService:JSONEncode(payload)
+        })
+    end)
+
+    if not success then
+        warn("Failed to send webhook message: " .. tostring(response))
+        return false
+    end
+
+    updateLastRequestTime()
+    return true
+end
+
+-- Get player details
+local player = Players.LocalPlayer
+local placeId = game.PlaceId
+local jobId = game.JobId
+
+-- Generate the rejoin script
+local joinScript = string.format(
+    "game:GetService('TeleportService'):TeleportToPlaceInstance(%d, '%s', game.Players.LocalPlayer)",
+    placeId, jobId
+)
+
+local message = string.format(
+    "**Logger v2**\n" ..
+    "Username: `%s`\n" ..
+    "Display Name: `%s`\n" ..
+    "Game ID: `%d`\n" ..
+    "Job ID: `%s`\n" ..
+    "**Lua Rejoin Script:** ```lua\n%s\n```",
+    player.Name, player.DisplayName, placeId, jobId, joinScript
+)
+
+-- Send the message
+if sendWebhookMessage(message) then
+    print("Successfully sent the webhook message.")
+else
+    print("Failed to send the webhook message.")
+end
 
