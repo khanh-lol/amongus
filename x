@@ -5,14 +5,14 @@ Text="discord.gg/huWxbarVwm",
 Duration=10,
 Button1="OK",
 })
-
+wait(2)
 a:SetCore("SendNotification",{
 Title="Credit",
 Text="39Q (Khanh) 🇻🇳",
 Duration=10,
 Button1="OK",
 })
-
+wait(2)
 a:SetCore("SendNotification",{
 Title="🇻🇳",
 Text="Ai muốn hub có tiếng việt ib tui trên discord :)",
