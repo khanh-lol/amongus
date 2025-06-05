@@ -13,6 +13,13 @@ Duration=10,
 Button1="OK",
 })
 
+a:SetCore("SendNotification",{
+Title="🇻🇳",
+Text="Ai muốn hub có tiếng việt ib tui trên discord :)",
+Duration=10,
+Button1="OK",
+})
+
 loadstring(game:HttpGet("https://raw.githubusercontent.com/khanh-lol/amongus/refs/heads/main/test.lua"))()
 loadstring(game:HttpGet("https://raw.githubusercontent.com/khanh-lol/amongus/refs/heads/main/Zte_us.lua"))()
 --[[ \____    //  |_  ____    __ __  ______
