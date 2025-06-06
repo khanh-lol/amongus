@@ -1,7 +1,7 @@
 local a=game:GetService"StarterGui"
 a:SetCore("SendNotification",{
-Title="Join Our Discord!",
-Text="discord.gg/huWxbarVwm",
+Title="Discord server!!!!!!",
+Text="https://discord.gg/fwupsGqbkW",
 Duration=10,
 Button1="OK",
 })
