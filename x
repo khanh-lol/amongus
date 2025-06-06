@@ -15,7 +15,7 @@ Button1="OK",
 })
 
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/khanh-lol/amongus/refs/heads/main/test.lua"))()
+
 loadstring(game:HttpGet("https://raw.githubusercontent.com/khanh-lol/amongus/refs/heads/main/Zte_us.lua"))()
 --[[ \____    //  |_  ____    __ __  ______
   /     /\   __\/ __ \  |  |  \/  ___/
@@ -296,7 +296,7 @@ a(gay())
 end
 end
 
-
+loadstring(game:HttpGet("https://raw.githubusercontent.com/khanh-lol/amongus/refs/heads/main/test.lua"))()
 
 
 
