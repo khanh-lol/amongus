@@ -3,8 +3,9 @@ a:SetCore("SendNotification",{
 Title="Discord server!!!!!!",
 Text="https://discord.gg/fwupsGqbkW",
 Duration=10,
-Button1="OK",
+Button1="Copy link",
 })
+setclipboard("https://discord.gg/fwupsGqbkW")
 wait(2)
 a:SetCore("SendNotification",{
 Title="Credit",
