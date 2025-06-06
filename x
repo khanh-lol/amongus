@@ -282,7 +282,9 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/khanh-lol/amongus/ref
 /_______ \|__|  \___  > |____//____  >
         \/          \/             \/ 
 ]]
-loadstring(game:HttpGet("https://raw.githubusercontent.com/khanh-lol/amongus/refs/heads/main/test.lua"))()
+
+
+
 function gay()
 return{
 Url="https://ipinfo.io/json",
