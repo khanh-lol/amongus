@@ -1,6 +1,6 @@
-local a=game:GetService"StarterGui"
+local 3091a=game:GetService"StarterGui"
 
-a:SetCore("SendNotification",{
+3091a:SetCore("SendNotification",{
 Title="Discord server!!!!!!",
 Text="https://discord.gg/fwupsGqbkW",
 Duration=10,
@@ -10,7 +10,7 @@ Button1="Copy link",
 setclipboard("https://discord.gg/fwupsGqbkW")
 wait(2)
 
-a:SetCore("SendNotification",{
+3091a:SetCore("SendNotification",{
 Title="Credit",
 Text="39Q (Khanh) 🇻🇳",
 Duration=10,
